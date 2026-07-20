@@ -144,21 +144,29 @@
       transform: translateY(0);
     }
 
-    table {
+    .table-wrapper {
       width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       margin-top: 30px;
-      font-size: 14px;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
-      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      background-color: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      min-width: 800px; /* Ensures the table doesn't compress too much on tiny screens */
     }
 
     th, td {
       padding: 14px 18px;
       border-bottom: 1px solid #e2e8f0;
       text-align: left;
+      vertical-align: middle;
     }
 
     th {
@@ -180,6 +188,27 @@
 
     tr:hover td {
       background-color: #f1f5f9;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .category-badge {
+      background-color: #ebf8ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+    }
+    
+    .course-badge {
+      background-color: #f0fff4;
+      color: #2f855a;
+      border: 1px solid #c6f6d5;
     }
 
     @media (max-width: 768px) {
@@ -247,19 +276,21 @@
       </div>
     </div>
 
-    <table id="resultsTable" style="display: none;">
-      <thead>
-        <tr>
-          <th>Sl. No.</th>
-          <th>College</th>
-          <th>Category</th>
-          <th>Course</th>
-          <th>Closing Rank</th>
-          <th>Fees</th>
-        </tr>
-      </thead>
-      <tbody id="resultsBody"></tbody>
-    </table>
+    <div id="resultsWrapper" style="display: none;" class="table-wrapper">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th>Sl. No.</th>
+            <th>College</th>
+            <th>Category</th>
+            <th>Course</th>
+            <th>Closing Rank</th>
+            <th>Fees</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <script>
@@ -319,22 +350,28 @@
       });
 
       if (filtered.length === 0) {
-        resultsBody.innerHTML = '<tr><td colspan="6">No colleges found for given filters.</td></tr>';
+        resultsBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #718096;">No colleges found for given filters.</td></tr>';
       } else {
-        const rows = filtered.map((college, index) => `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${college["Name of the College Allotted."]}</td>
-            <td>${college["Allotted Category"]}</td>
-            <td>${college["Course Name"]}</td>
-            <td>${college["All India Rank"]}</td>
-            <td>${college["Course_fees"] || "N/A"}</td>
-          </tr>
-        `).join('');
+        const rows = filtered.map((college, index) => {
+          const fees = college["Course_fees"];
+          const formattedFees = fees !== null && fees !== undefined && !isNaN(fees)
+            ? `₹${Number(fees).toLocaleString('en-IN')}`
+            : "N/A";
+          return `
+            <tr>
+              <td style="color: #718096; font-weight: 500;">${index + 1}</td>
+              <td style="font-weight: 500; color: #1a202c;">${college["Name of the College Allotted."]}</td>
+              <td><span class="badge category-badge">${college["Allotted Category"]}</span></td>
+              <td><span class="badge course-badge">${college["Course Name"]}</span></td>
+              <td style="font-weight: 600; color: #991f2d;">${Number(college["All India Rank"]).toLocaleString('en-IN')}</td>
+              <td style="font-weight: 600; color: #2d3748;">${formattedFees}</td>
+            </tr>
+          `;
+        }).join('');
         resultsBody.innerHTML = rows;
       }
 
-      document.getElementById('resultsTable').style.display = 'table';
+      document.getElementById('resultsWrapper').style.display = 'block';
     }
 
     loadData();
