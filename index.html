@@ -233,6 +233,48 @@
       border: 1px solid #c6f6d5;
     }
 
+    /* Loader styles */
+    .loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.3s ease;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #991f2d;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loader-text {
+      margin-top: 15px;
+      font-weight: 600;
+      color: #991f2d;
+      font-size: 16px;
+    }
+
+    #mainContent {
+      opacity: 0.1;
+      transition: opacity 0.3s ease;
+    }
+
     @media (max-width: 768px) {
       .header-title {
         font-size: 20px;
@@ -255,6 +297,12 @@
   </style>
 </head>
 <body>
+  <!-- Loading Spinner -->
+  <div id="loader" class="loader-overlay">
+    <div class="spinner"></div>
+    <div class="loader-text">Loading predictor data...</div>
+  </div>
+
   <header>
     <div class="logo">
       <img src="logo.png" alt="Excellent NEET Academy Dharwad">
@@ -265,7 +313,7 @@
     </a>
   </header>
 
-  <div class="container">
+  <div class="container" id="mainContent">
     <div class="filters">
       <div>
         <label for="rank">NEET Rank</label>
@@ -316,17 +364,24 @@
   </div>
 
   <script>
-    let collegeData = [];
+    let collegeData = { colleges: [], categories: [], courses: [], data: [] };
 
     async function loadData() {
       try {
         const response = await fetch('medical_colleges_data.json');
         collegeData = await response.json();
 
-        populateDropdown('category', [...new Set(collegeData.map(c => c["Allotted Category"]))]);
-        populateDropdown('course', [...new Set(collegeData.map(c => c["Course Name"]))]);
+        populateDropdown('category', collegeData.categories);
+        populateDropdown('course', collegeData.courses);
+        
+        // Hide loader and show content
+        document.getElementById('loader').style.opacity = '0';
+        setTimeout(() => {
+          document.getElementById('loader').style.display = 'none';
+        }, 300);
+        document.getElementById('mainContent').style.opacity = '1';
       } catch (e) {
-        alert("Failed to load JSON data.");
+        document.getElementById('loader').innerHTML = '<div style="color: #991f2d; font-weight: bold; text-align: center; padding: 20px;">Failed to load data. Please refresh the page.</div>';
       }
     }
 
@@ -353,19 +408,23 @@
         return;
       }
 
-      let filtered = collegeData.filter(college => {
-        const eligibleRank = rank <= college["All India Rank"];
-        const matchCategory = category ? college["Allotted Category"] === category : true;
-        const matchCourse = course ? college["Course Name"] === course : true;
+      let filtered = collegeData.data.filter(row => {
+        const rankVal = row[0];
+        const categoryIdx = row[2];
+        const courseIdx = row[3];
+        const fees = row[4];
+
+        const eligibleRank = rank <= rankVal;
+        const matchCategory = category ? collegeData.categories[categoryIdx] === category : true;
+        const matchCourse = course ? collegeData.courses[courseIdx] === course : true;
 
         let matchFees = true;
-        const courseFees = parseInt(college["Course_fees"]);
-        if (!isNaN(courseFees) && feesFilter) {
+        if (fees !== null && fees !== undefined && !isNaN(fees) && feesFilter) {
           const feeLimit = parseInt(feesFilter);
-          if (feeLimit === 50000) matchFees = courseFees < 50000;
-          else if (feeLimit === 100000) matchFees = courseFees >= 50000 && courseFees <= 100000;
-          else if (feeLimit === 500000) matchFees = courseFees > 100000 && courseFees <= 500000;
-          else if (feeLimit === 500001) matchFees = courseFees > 500000;
+          if (feeLimit === 50000) matchFees = fees < 50000;
+          else if (feeLimit === 100000) matchFees = fees >= 50000 && fees <= 100000;
+          else if (feeLimit === 500000) matchFees = fees > 100000 && fees <= 500000;
+          else if (feeLimit === 500001) matchFees = fees > 500000;
         }
 
         return eligibleRank && matchCategory && matchCourse && matchFees;
@@ -374,18 +433,23 @@
       if (filtered.length === 0) {
         resultsBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #718096;">No colleges found for given filters.</td></tr>';
       } else {
-        const rows = filtered.map((college, index) => {
-          const fees = college["Course_fees"];
+        const rows = filtered.map((row, index) => {
+          const rankVal = row[0];
+          const collegeName = collegeData.colleges[row[1]];
+          const categoryName = collegeData.categories[row[2]];
+          const courseName = collegeData.courses[row[3]];
+          const fees = row[4];
+          
           const formattedFees = fees !== null && fees !== undefined && !isNaN(fees)
             ? `₹${Number(fees).toLocaleString('en-IN')}`
             : "N/A";
           return `
             <tr>
               <td style="color: #718096; font-weight: 500;">${index + 1}</td>
-              <td style="font-weight: 500; color: #1a202c;">${college["Name of the College Allotted."]}</td>
-              <td><span class="badge category-badge">${college["Allotted Category"]}</span></td>
-              <td><span class="badge course-badge">${college["Course Name"]}</span></td>
-              <td style="font-weight: 600; color: #991f2d;">${Number(college["All India Rank"]).toLocaleString('en-IN')}</td>
+              <td style="font-weight: 500; color: #1a202c;">${collegeName}</td>
+              <td><span class="badge category-badge">${categoryName}</span></td>
+              <td><span class="badge course-badge">${courseName}</span></td>
+              <td style="font-weight: 600; color: #991f2d;">${Number(rankVal).toLocaleString('en-IN')}</td>
               <td style="font-weight: 600; color: #2d3748;">${formattedFees}</td>
             </tr>
           `;
