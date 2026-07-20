@@ -368,7 +368,7 @@
 
     async function loadData() {
       try {
-        const response = await fetch('medical_colleges_data.json');
+        const response = await fetch('medical_colleges_data.json?v=' + new Date().getTime());
         collegeData = await response.json();
 
         populateDropdown('category', collegeData.categories);
