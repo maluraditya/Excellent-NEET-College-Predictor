@@ -572,7 +572,7 @@
               <th style="width: 120px;">Category</th>
               <th style="width: 150px;">Course</th>
               <th style="width: 150px;">Highest Cutoff Rank</th>
-              <th style="width: 140px;">Fees</th>
+              <th style="width: 160px;">Fees</th>
               <th style="width: 130px; text-align: center;">Details</th>
             </tr>
           </thead>
@@ -620,6 +620,34 @@
       });
     }
 
+    function getFormattedFee(feeVal, allRows) {
+      if (feeVal !== null && feeVal !== undefined && !isNaN(feeVal) && Number(feeVal) > 0) {
+        return `₹${Number(feeVal).toLocaleString('en-IN')}`;
+      }
+      if (allRows && allRows.length > 0) {
+        const validFees = [...new Set(allRows.map(r => r[4]).filter(f => f !== null && f !== undefined && !isNaN(f) && Number(f) > 0))];
+        if (validFees.length === 1) {
+          return `₹${Number(validFees[0]).toLocaleString('en-IN')}`;
+        } else if (validFees.length > 1) {
+          const minF = Math.min(...validFees);
+          const maxF = Math.max(...validFees);
+          return `₹${Number(minF).toLocaleString('en-IN')} – ₹${Number(maxF).toLocaleString('en-IN')}`;
+        }
+      }
+      return "Govt Fee / Contact";
+    }
+
+    function getNumericFeeForSorting(group) {
+      if (group.maxRow[4] !== null && group.maxRow[4] !== undefined && !isNaN(group.maxRow[4])) {
+        return Number(group.maxRow[4]);
+      }
+      const validFees = group.allRows.map(r => r[4]).filter(f => f !== null && f !== undefined && !isNaN(f));
+      if (validFees.length > 0) {
+        return Math.min(...validFees);
+      }
+      return 999999999; // Sort null/unknown fees to the bottom when sorting low to high
+    }
+
     function filterColleges() {
       const rankInput = document.getElementById('rank').value.trim();
       const rank = parseInt(rankInput);
@@ -651,7 +679,8 @@
         if (category && collegeData.categories[catIdx] !== category) continue;
         if (course && collegeData.courses[crsIdx] !== course) continue;
 
-        if (feesFilter && fees !== null && fees !== undefined && !isNaN(fees)) {
+        if (feesFilter) {
+          if (fees === null || fees === undefined || isNaN(fees)) continue;
           const limit = parseInt(feesFilter);
           if (limit === 50000 && fees >= 50000) continue;
           if (limit === 100000 && (fees < 50000 || fees > 100000)) continue;
@@ -697,7 +726,7 @@
       } else if (sortBy === 'name') {
         filteredGroupedColleges.sort((a, b) => a.collegeName.localeCompare(b.collegeName));
       } else if (sortBy === 'fees') {
-        filteredGroupedColleges.sort((a, b) => (a.maxRow[4] || 0) - (b.maxRow[4] || 0));
+        filteredGroupedColleges.sort((a, b) => getNumericFeeForSorting(a) - getNumericFeeForSorting(b));
       }
     }
 
@@ -718,7 +747,6 @@
       if (page >= 1 && page <= totalPages) {
         currentPage = page;
         renderResults();
-        // Smooth scroll to top of table
         document.getElementById('resultsWrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
@@ -769,11 +797,8 @@
         const colName = group.collegeName;
         const catName = collegeData.categories[maxRow[2]];
         const courseName = collegeData.courses[maxRow[3]];
-        const fees = maxRow[4];
 
-        const formattedFees = fees !== null && fees !== undefined && !isNaN(fees)
-          ? `₹${Number(fees).toLocaleString('en-IN')}`
-          : "N/A";
+        const formattedFees = getFormattedFee(maxRow[4], group.allRows);
 
         const isExpanded = expandedColleges.has(group.colIdx);
         const hasMultiple = group.allRows.length > 1;
@@ -803,9 +828,7 @@
             const subCat = collegeData.categories[r[2]];
             const subCrs = collegeData.courses[r[3]];
             const subRank = r[0];
-            const subFees = r[4] !== null && r[4] !== undefined && !isNaN(r[4])
-              ? `₹${Number(r[4]).toLocaleString('en-IN')}`
-              : "N/A";
+            const subFees = getFormattedFee(r[4]);
             return `
               <tr>
                 <td><span class="badge category-badge">${subCat}</span></td>
